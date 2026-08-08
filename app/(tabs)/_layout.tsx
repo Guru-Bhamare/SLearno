@@ -1,33 +1,95 @@
-import { Tabs } from 'expo-router';
+import { Redirect, Tabs } from 'expo-router';
 import React from 'react';
+import { ActivityIndicator, View } from 'react-native';
 
-import { HapticTab } from '@/components/haptic-tab';
-import { IconSymbol } from '@/components/ui/icon-symbol';
+import { AnimatedTabIcon } from '@/components/animated-tab-icon';
+import { useSession } from '@/context/session';
 import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 
 export default function TabLayout() {
-  const colorScheme = useColorScheme();
+  const colorScheme = useColorScheme() ?? 'light';
+  const { profile, isLoading } = useSession();
+
+  if (isLoading) {
+    return (
+      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+        <ActivityIndicator />
+      </View>
+    );
+  }
+
+  if (!profile) {
+    return <Redirect href="/onboarding" />;
+  }
 
   return (
     <Tabs
       screenOptions={{
-        tabBarActiveTintColor: Colors[colorScheme ?? 'light'].tint,
         headerShown: false,
-        tabBarButton: HapticTab,
+        tabBarActiveTintColor: Colors[colorScheme].tint,
+        tabBarInactiveTintColor: Colors[colorScheme].tabIconDefault,
+        tabBarStyle: {
+          backgroundColor: Colors[colorScheme].card,
+          borderTopColor: Colors[colorScheme].border,
+          borderTopWidth: 1,
+        },
       }}>
       <Tabs.Screen
         name="index"
         options={{
-          title: 'Home',
-          tabBarIcon: ({ color }) => <IconSymbol size={28} name="house.fill" color={color} />,
+          title: 'Today',
+          tabBarIcon: ({ color, focused }) => (
+            <AnimatedTabIcon name={focused ? 'today' : 'today-outline'} color={color} focused={focused} />
+          ),
         }}
       />
       <Tabs.Screen
-        name="explore"
+        name="routine"
         options={{
-          title: 'Explore',
-          tabBarIcon: ({ color }) => <IconSymbol size={28} name="paperplane.fill" color={color} />,
+          title: 'Micro-gap',
+          tabBarIcon: ({ color, focused }) => (
+            <AnimatedTabIcon
+              name={focused ? 'flash' : 'flash-outline'}
+              color={color}
+              focused={focused}
+            />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="notes"
+        options={{
+          title: 'Notes',
+          tabBarIcon: ({ color, focused }) => (
+            <AnimatedTabIcon
+              name={focused ? 'document-text' : 'document-text-outline'}
+              color={color}
+              focused={focused}
+            />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="doubts"
+        options={{
+          title: 'Doubts',
+          tabBarIcon: ({ color, focused }) => (
+            <AnimatedTabIcon
+              name={focused ? 'help-circle' : 'help-circle-outline'}
+              color={color}
+              focused={focused}
+            />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="library"
+        options={{
+          title: 'Library',
+          tabBarIcon: ({ color, focused }) => (
+            <AnimatedTabIcon name={focused ? 'library' : 'library-outline'} color={color} focused={focused} />
+          ),
         }}
       />
     </Tabs>
