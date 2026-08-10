@@ -76,22 +76,32 @@ structure). Treat all the given entries as ONE combined source: consolidate over
 days into fewer, better questions rather than producing a separate card per day.
 
 You are also given a list of flashcards that already exist for this intern (from notes, tasks, or other
-activity). Do NOT produce any card that duplicates or closely overlaps with a card in that existing list, even if
-worded differently or asked from a different angle — the intern already has that knowledge covered in their deck.
-Only produce cards that test something genuinely not already covered.
+activity). Use it to avoid pointless repeats — don't ask the exact same question in essentially the same way as
+one already there. But "already covered" is not by itself a reason to skip a topic: if revisiting a concept is
+genuinely useful (it's worth reinforcing, the existing card didn't capture a nuance the notes add, or the intern's
+notes show they're circling back to something touched on before), it's fine — and often good — to produce a card
+that revisits it, ideally from a different angle or with more depth than the existing card. Use judgment: only
+skip a topic when covering it again would add no real learning value.
 
-Before writing cards, decide whether the notes actually contain learnable content:
-- If a note (or all of the given notes) is just a log of events, a to-do list, small talk, or otherwise has no
-  concrete fact, concept, or skill worth recalling, produce NO cards from it. It is completely fine to return an
-  empty "cards" array — do not force cards out of content that doesn't support them.
+Before writing cards, decide whether the notes actually contain learnable content. Be generous here, not strict:
+most notes about work an intern actually did — even ones written as a narrative log of what happened — have at
+least one recallable thing buried in them: a technique used, a decision and why, a mistake and its fix, a new
+tool/term/concept encountered, a lesson learned, an approach to a problem. Pull that out and build a card around
+it, even if it's a single sentence inside an otherwise diary-style entry.
+- Only return an empty "cards" array when a note is truly pure logistics with no substantive detail at all — e.g.
+  "had a 1:1 with my manager", "attended standup", a bare to-do list, or small talk with no technique, decision,
+  or fact described. If there's any concrete detail in there, prefer writing at least one card over returning
+  nothing.
 - Never write a card whose question or answer is about WHEN something happened — no "what did you do on
   [date]", "what happened on [day]", or similar. Dates are metadata, not content to be tested. Only ask about the
   actual facts, concepts, or techniques described in the notes.
 - Only produce cards grounded in what's written — do not invent facts.
-- Before finalizing, drop any card that tests essentially the same fact or concept as another card in the set
-  (even if worded differently) — each card must test a distinct piece of knowledge, no near-duplicates.
-- Also drop any card that duplicates or closely overlaps with a card in the existing flashcards list provided
-  below. It is completely fine to return an empty "cards" array if everything worth testing is already covered.
+- Before finalizing, drop any card that tests essentially the same fact or concept as another card in THIS SAME
+  set you're producing now (even if worded differently) — no two cards in one batch should test the same thing.
+- A card is only a duplicate of an EXISTING flashcard if it tests the exact same fact in essentially the same
+  way — that one should be dropped. A card that logically revisits or builds on an existing one (per the guidance
+  above) is not a duplicate and can be kept. It's completely fine to return an empty "cards" array if there's
+  truly nothing left worth testing, but don't reach for that just because a topic was touched before.
 
 When the notes do support cards, produce 0-6 flashcards (fewer is fine; never pad with weak or repetitive
 cards just to hit a count). Mix two kinds:
@@ -142,7 +152,7 @@ Deno.serve(async (req) => {
 
     const messages: GeminiMessage[] = [
       { role: 'system', content: SYSTEM_PROMPT },
-      { role: 'user', content: `# Existing flashcards (do not duplicate)\n${existingCardsSummary}\n\n# Notes\n${combinedInput}` },
+      { role: 'user', content: `# Existing flashcards (avoid literal repeats; logical revisits are OK)\n${existingCardsSummary}\n\n# Notes\n${combinedInput}` },
     ];
 
     const result = await callGeminiJSON<{ cards: GeneratedCard[] }>(messages);

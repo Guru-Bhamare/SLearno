@@ -10,17 +10,21 @@ export function useGenerateDailyPlan(profileId: string | undefined) {
       schedule,
       academicsGoals,
       skillsGoals,
+      academicsMinutes,
+      skillsMinutes,
       date,
     }: {
       schedule: string;
       academicsGoals: string;
       skillsGoals: string;
+      academicsMinutes?: number;
+      skillsMinutes?: number;
       date: string;
     }) => {
       if (!profileId) throw new Error('Not signed in');
 
       const { data, error } = await supabase.functions.invoke('generate-daily-plan', {
-        body: { profileId, schedule, academicsGoals, skillsGoals, date },
+        body: { profileId, schedule, academicsGoals, skillsGoals, academicsMinutes, skillsMinutes, date },
       });
 
       if (error) throw error;

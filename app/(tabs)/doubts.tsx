@@ -174,13 +174,20 @@ export default function DoubtsScreen() {
 
               <ThemedText style={styles.itemQuestion}>{d.question}</ThemedText>
 
-              {d.mock_answer && (
+              {d.status === 'answered' && d.mentor_answer ? (
                 <View style={[styles.answerBubble, { borderColor: tint, backgroundColor: withAlpha(tint, 0.06) }]}>
                   <ThemedText type="label" style={{ color: tint, fontSize: 11 }}>
-                    Mentor tip
+                    {d.answered_by ? `${d.answered_by}'s answer` : "Mentor's answer"}
                   </ThemedText>
                   <ThemedText type="muted" style={styles.answerText}>
-                    {d.mock_answer}
+                    {d.mentor_answer}
+                  </ThemedText>
+                </View>
+              ) : (
+                <View style={styles.pendingRow}>
+                  <Ionicons name="time-outline" size={13} color={colors.icon} />
+                  <ThemedText type="muted" style={styles.pendingText}>
+                    Waiting for a mentor to respond
                   </ThemedText>
                 </View>
               )}
@@ -255,6 +262,8 @@ const styles = StyleSheet.create({
   itemHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
   itemWhen: { fontSize: 12 },
   itemQuestion: { fontSize: 15, lineHeight: 21 },
+  pendingRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  pendingText: { fontSize: 12.5 },
   chip: {
     flexDirection: 'row',
     alignItems: 'center',

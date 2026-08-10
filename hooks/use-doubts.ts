@@ -1,6 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
-import { getMockAnswer } from '@/lib/doubt-helper';
 import { supabase } from '@/lib/supabase';
 import { triggerProgressAnalysis } from '@/lib/trigger-analysis';
 
@@ -8,8 +7,10 @@ export type Doubt = {
   id: string;
   question: string;
   is_anonymous: boolean;
-  status: string;
-  mock_answer: string | null;
+  status: 'open' | 'answered';
+  mentor_answer: string | null;
+  answered_by: string | null;
+  answered_at: string | null;
   created_at: string;
 };
 
@@ -26,6 +27,9 @@ export function useDoubts(profileId: string | undefined) {
       return data as Doubt[];
     },
     enabled: !!profileId,
+    // Mentor answers arrive from a separate web app, not this device — poll
+    // gently while the screen is open so a fresh answer shows up unprompted.
+    refetchInterval: 20_000,
   });
 }
 
@@ -39,8 +43,6 @@ export function useAskDoubt(profileId: string | undefined) {
         profile_id: profileId,
         question,
         is_anonymous: isAnonymous,
-        status: 'answered',
-        mock_answer: getMockAnswer(question),
       });
       if (error) throw error;
     },

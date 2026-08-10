@@ -1,6 +1,12 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useState } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, TextInput, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Pressable,
+  StyleSheet,
+  TextInput,
+  View
+} from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
 import { Colors } from '@/constants/theme';
@@ -18,6 +24,9 @@ function FormField({
   colors,
   accent,
   icon,
+  minutesValue,
+  onMinutesChange,
+  minutesLabel,
 }: {
   label: string;
   hint: string;
@@ -27,6 +36,9 @@ function FormField({
   colors: (typeof Colors)['light'];
   accent: string;
   icon: keyof typeof Ionicons.glyphMap;
+  minutesValue: string;
+  onMinutesChange: (v: string) => void;
+  minutesLabel: string;
 }) {
   return (
     <View style={[styles.field, { borderColor: withAlpha(accent, 0.15), backgroundColor: withAlpha(accent, 0.03) }]}>
@@ -57,6 +69,31 @@ function FormField({
           },
         ]}
       />
+      {value.trim().length > 0 && (
+        <View style={styles.minutesRow}>
+          <Ionicons name="time-outline" size={14} color={accent} />
+          <ThemedText style={[styles.minutesLabel, { color: colors.text }]}>{minutesLabel}</ThemedText>
+          <TextInput
+            value={minutesValue}
+            onChangeText={(v) => onMinutesChange(v.replace(/[^0-9]/g, ''))}
+            placeholder="60"
+            placeholderTextColor={withAlpha(colors.icon, 0.75)}
+            keyboardType="number-pad"
+            maxLength={3}
+            style={[
+              styles.minutesInput,
+              {
+                color: colors.text,
+                backgroundColor: colors.card,
+                borderColor: withAlpha(accent, 0.2),
+              },
+            ]}
+          />
+          <ThemedText type="muted" style={styles.minutesUnit}>
+            min
+          </ThemedText>
+        </View>
+      )}
     </View>
   );
 }
@@ -80,9 +117,17 @@ export function TodayPlanForm({
   const [schedule, setSchedule] = useState('');
   const [academicsGoals, setAcademicsGoals] = useState('');
   const [skillsGoals, setSkillsGoals] = useState('');
+  const [academicsMinutes, setAcademicsMinutes] = useState('');
+  const [skillsMinutes, setSkillsMinutes] = useState('');
 
-  const hasGoals = academicsGoals.trim().length > 0 || skillsGoals.trim().length > 0;
-  const canSubmit = schedule.trim().length > 0 && hasGoals;
+  const hasAcademics = academicsGoals.trim().length > 0;
+  const hasSkills = skillsGoals.trim().length > 0;
+  const hasGoals = hasAcademics || hasSkills;
+  const canSubmit =
+    schedule.trim().length > 0 &&
+    hasGoals &&
+    (!hasAcademics || Number(academicsMinutes) > 0) &&
+    (!hasSkills || Number(skillsMinutes) > 0);
 
   const submit = () => {
     if (!canSubmit) return;
@@ -91,6 +136,8 @@ export function TodayPlanForm({
         schedule: schedule.trim(),
         academicsGoals: academicsGoals.trim(),
         skillsGoals: skillsGoals.trim(),
+        academicsMinutes: hasAcademics ? Number(academicsMinutes) : undefined,
+        skillsMinutes: hasSkills ? Number(skillsMinutes) : undefined,
         date,
       },
       { onSuccess: () => onGenerated?.() }
@@ -155,6 +202,9 @@ export function TodayPlanForm({
         colors={colors}
         accent={colors.tint}
         icon="school-outline"
+        minutesValue={academicsMinutes}
+        onMinutesChange={setAcademicsMinutes}
+        minutesLabel="Time for academics"
       />
 
       <FormField
@@ -166,6 +216,9 @@ export function TodayPlanForm({
         colors={colors}
         accent={colors.success}
         icon="bulb-outline"
+        minutesValue={skillsMinutes}
+        onMinutesChange={setSkillsMinutes}
+        minutesLabel="Time for skills"
       />
 
       {!!error && (
@@ -251,6 +304,18 @@ const styles = StyleSheet.create({
     lineHeight: 22,
     minHeight: 80,
   },
+  minutesRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  minutesLabel: { flex: 1, minWidth: 0, fontSize: 13, fontWeight: '600' },
+  minutesInput: {
+    width: 56,
+    borderRadius: 8,
+    borderWidth: 1,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    fontSize: 14,
+    textAlign: 'center',
+  },
+  minutesUnit: { fontSize: 13 },
   errorBox: { borderRadius: 10, padding: 12 },
   submitBtn: {
     flexDirection: 'row',

@@ -1,5 +1,5 @@
 import { PropsWithChildren } from 'react';
-import { ScrollView, StyleSheet, View, ViewStyle } from 'react-native';
+import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, View, ViewStyle } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Colors } from '@/constants/theme';
@@ -35,14 +35,18 @@ export function Screen({
   }
 
   return (
-    <View style={[styles.flexFill, { backgroundColor: colors.background }]}>
+    <KeyboardAvoidingView
+      style={[styles.flexFill, { backgroundColor: colors.background }]}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      keyboardVerticalOffset={0}>
       <ScrollView
         style={styles.flexFill}
+        keyboardShouldPersistTaps="handled"
         contentContainerStyle={[styles.container, { paddingTop: contentPaddingTop }, style]}>
         {children}
       </ScrollView>
       {statusBarBackdrop}
-    </View>
+    </KeyboardAvoidingView>
   );
 }
 

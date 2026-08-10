@@ -21,8 +21,7 @@ import { scheduleEveningNudge } from '@/lib/notifications';
 import { cardStyle } from '@/lib/theme-styles';
 
 function greeting() {
-  const localDateTime = new Date().toLocaleString();
-  const hour = new Date(localDateTime).getHours();
+  const hour = new Date().getHours();
   if (hour < 12) return 'Good morning';
   if (hour < 18) return 'Good afternoon';
   return 'Good evening';
@@ -123,7 +122,7 @@ export default function TodayScreen() {
 
       {/* Quick actions */}
       <View style={styles.quickRow}>
-        
+      
         <Pressable
           onPress={() => router.push('/reflection')}
           style={[styles.quickBtn, cardStyle(colorScheme)]}>

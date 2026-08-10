@@ -1,33 +1,3 @@
-const TOPIC_ANSWERS: { keywords: string[]; answer: string }[] = [
-  {
-    keywords: ['git', 'merge', 'branch', 'rebase'],
-    answer:
-      'Try `git status` first to see what state you\'re in — merge conflicts usually come from diverged history, so `git log --oneline --graph` on both branches helps before you rebase or merge.',
-  },
-  {
-    keywords: ['async', 'promise', 'await'],
-    answer:
-      'A common gotcha: forgetting to `await` inside a loop. Try adding console.logs before/after each await to see the actual order of execution.',
-  },
-  {
-    keywords: ['api', 'endpoint', 'rest', 'http'],
-    answer:
-      'Check the request/response in your network tab first — status code and payload usually tell you which side (client or server) the issue is on.',
-  },
-];
-
-/**
- * Stands in for a mentor's first response so doubts don't sit unanswered.
- * Keyword-matched against a small topic bank; falls back to a neutral
- * acknowledgement that doesn't pretend to have looked at the specifics.
- */
-export function getMockAnswer(question: string): string {
-  const lower = question.toLowerCase();
-  const match = TOPIC_ANSWERS.find((t) => t.keywords.some((k) => lower.includes(k)));
-  if (match) return match.answer;
-  return "Good question — logged for your mentor. In the meantime, check the common doubts board in case someone's asked something similar.";
-}
-
 /**
  * Lightweight, rule-based suggestion to make a question clearer to answer —
  * not a rewrite, just a nudge toward specifics.

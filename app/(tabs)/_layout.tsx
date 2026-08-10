@@ -3,8 +3,8 @@ import React from 'react';
 import { ActivityIndicator, View } from 'react-native';
 
 import { AnimatedTabIcon } from '@/components/animated-tab-icon';
-import { useSession } from '@/context/session';
 import { Colors } from '@/constants/theme';
+import { useSession } from '@/context/session';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 
 export default function TabLayout() {
@@ -14,7 +14,7 @@ export default function TabLayout() {
   if (isLoading) {
     return (
       <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
-        <ActivityIndicator />
+        <ActivityIndicator size={30} color={'blue'}/>
       </View>
     );
   }

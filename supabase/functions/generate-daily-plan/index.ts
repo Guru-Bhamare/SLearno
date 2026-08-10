@@ -77,8 +77,9 @@ type PlanTask = {
 type PlanResult = { tasks: PlanTask[] };
 
 const SYSTEM_PROMPT = `You are a daily planning assistant for an intern self-learning app. The user has already
-decided which items are academics vs additional skills — they provided two separate lists. Your job is ONLY to
-turn those lists into a realistic timed schedule. Do NOT move items between categories or invent new goals.
+decided which items are academics vs additional skills — they provided two separate lists, and for each
+non-empty list a total time budget in minutes for that category today. Your job is ONLY to turn those lists into
+a realistic timed schedule that fits the stated budgets. Do NOT move items between categories or invent new goals.
 
 Rules:
 - Tasks from the "Academics" list MUST have category "academics". Tasks from the "Additional skills" list MUST
@@ -87,8 +88,13 @@ Rules:
 - Each task needs a concrete actionable title based on what the user wrote.
 - Assign start_time in 24h HH:MM format, respecting the time schedule — never overlap fixed commitments.
 - duration_min: 15–90 minutes, realistic for the task.
+- A category's time budget is a hard target, not a suggestion: the sum of duration_min across that category's
+  tasks must land within about 10 minutes of its stated budget. If the listed items would naturally take longer
+  than the budget, prioritize the most important items and trim scope (shorter sessions, fewer sub-tasks) to fit
+  — never silently drop the budget or blow far past it. If they'd take less, use the slack for a more thorough
+  pass on the top item(s) rather than padding with filler.
 - skill_area: short label inferred from the item, e.g. "Mathematics", "Physics", "Guitar".
-- Spread tasks across free windows; leave small breaks between blocks.
+- Spread tasks across free windows within the budget; leave small breaks between blocks.
 - If one list is empty, return tasks only for the non-empty list.
 
 Respond with EXACTLY ONE JSON object, no prose:
@@ -103,11 +109,22 @@ Deno.serve(async (req) => {
       schedule: string;
       academicsGoals?: string;
       skillsGoals?: string;
+      academicsMinutes?: number;
+      skillsMinutes?: number;
       date: string;
       goals?: string;
     };
 
-    const { profileId, schedule, academicsGoals, skillsGoals, date, goals: legacyGoalsRaw } = body;
+    const {
+      profileId,
+      schedule,
+      academicsGoals,
+      skillsGoals,
+      academicsMinutes,
+      skillsMinutes,
+      date,
+      goals: legacyGoalsRaw,
+    } = body;
 
     if (!profileId) throw new Error('profileId is required');
     if (!schedule?.trim()) throw new Error('schedule is required');
@@ -120,6 +137,12 @@ Deno.serve(async (req) => {
     if (!hasAcademicsOrSkills && !legacyGoals) {
       throw new Error('Add at least one item under Academics or Additional skills');
     }
+    if (academics && !(Number(academicsMinutes) > 0)) {
+      throw new Error('How much time do you want to spend on academics today?');
+    }
+    if (skills && !(Number(skillsMinutes) > 0)) {
+      throw new Error('How much time do you want to spend on additional skills today?');
+    }
 
     const admin = createAdminClient();
     const { data: profile } = await admin.from('profiles').select('*').eq('id', profileId).maybeSingle();
@@ -130,8 +153,12 @@ Deno.serve(async (req) => {
         : '',
       `Date: ${date}`,
       `Time schedule:\n${schedule.trim()}`,
-      academics ? `Academics (user chose these — category MUST be "academics"):\n${academics}` : '',
-      skills ? `Additional skills (user chose these — category MUST be "skills"):\n${skills}` : '',
+      academics
+        ? `Academics (user chose these — category MUST be "academics"). Time budget: ${Number(academicsMinutes)} minutes total for this category today:\n${academics}`
+        : '',
+      skills
+        ? `Additional skills (user chose these — category MUST be "skills"). Time budget: ${Number(skillsMinutes)} minutes total for this category today:\n${skills}`
+        : '',
       !hasAcademicsOrSkills && legacyGoals ? `Things to do today:\n${legacyGoals}` : '',
     ]
       .filter(Boolean)

@@ -305,11 +305,7 @@ export default function MicroGapScreen() {
         {topic && facts && <TopicFactsDeck topic={topic} facts={facts} />}
       </View>
 
-      <Pressable onPress={endGap} style={styles.newGapBtn}>
-        <ThemedText type="muted" style={{ color: colors.tint }}>
-          New gap
-        </ThemedText>
-      </Pressable>
+      
     </Screen>
   );
 }
