@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
+import type { Flashcard } from '@/hooks/use-flashcards';
 import { supabase } from '@/lib/supabase';
 import { triggerProgressAnalysis } from '@/lib/trigger-analysis';
 
@@ -13,7 +14,8 @@ export type Note = {
 };
 
 function todayDate() {
-  return new Date().toISOString().slice(0, 10);
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
 export function useNotes(profileId: string | undefined) {
@@ -24,7 +26,8 @@ export function useNotes(profileId: string | undefined) {
         .from('notes')
         .select('*')
         .eq('profile_id', profileId as string)
-        .order('date', { ascending: false });
+        .order('date', { ascending: false })
+        .order('created_at', { ascending: false });
       if (error) throw error;
       return data as Note[];
     },
@@ -32,7 +35,7 @@ export function useNotes(profileId: string | undefined) {
   });
 }
 
-export function useUpsertTodayNote(profileId: string | undefined) {
+export function useAddNote(profileId: string | undefined) {
   const queryClient = useQueryClient();
 
   return useMutation({
@@ -40,10 +43,7 @@ export function useUpsertTodayNote(profileId: string | undefined) {
       if (!profileId) throw new Error('No profile yet');
       const { error } = await supabase
         .from('notes')
-        .upsert(
-          { profile_id: profileId, date: todayDate(), content, updated_at: new Date().toISOString() },
-          { onConflict: 'profile_id,date' }
-        );
+        .insert({ profile_id: profileId, date: todayDate(), content });
       if (error) throw error;
     },
     onSuccess: () => {
@@ -63,7 +63,7 @@ export function useGenerateFlashcardsFromNotes(profileId: string | undefined) {
         body: { profileId, noteIds },
       });
       if (error) throw error;
-      return data as { added: number };
+      return data as { added: number; cards: Flashcard[] };
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['flashcards', profileId] }),
   });

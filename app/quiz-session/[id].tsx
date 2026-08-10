@@ -2,8 +2,9 @@ import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams } from 'expo-router';
 import { MotiView } from 'moti';
 import { useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Pressable, View } from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
 
+import { IconBadge } from '@/components/icon-badge';
 import { Screen } from '@/components/screen';
 import { ThemedText } from '@/components/themed-text';
 import { Colors } from '@/constants/theme';
@@ -11,14 +12,21 @@ import { useSession } from '@/context/session';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useAdvanceQuizSessionStatus, useQuizSession, useSubmitAnswer } from '@/hooks/use-quiz-sessions';
 import { withAlpha } from '@/lib/color';
-import { rankParticipants, sessionEndsAt } from '@/lib/quiz';
+import { JOIN_WINDOW_SECONDS, PER_QUESTION_SECONDS, rankParticipants, sessionEndsAt } from '@/lib/quiz';
 import { cardStyle, shadow } from '@/lib/theme-styles';
+
+const LOW_TIME_SECONDS = 5;
 
 function formatClock(totalSeconds: number) {
   const clamped = Math.max(0, totalSeconds);
   const m = Math.floor(clamped / 60);
   const s = clamped % 60;
   return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+}
+
+function clampProgress(value: number) {
+  if (Number.isNaN(value)) return 0;
+  return Math.min(1, Math.max(0, value));
 }
 
 export default function QuizSessionScreen() {
@@ -73,27 +81,48 @@ export default function QuizSessionScreen() {
 
   if (session.status === 'open') {
     const secondsLeft = Math.ceil((startsAtMs - nowTick) / 1000);
+    const urgent = secondsLeft <= LOW_TIME_SECONDS;
+    const progress = clampProgress(1 - secondsLeft / JOIN_WINDOW_SECONDS);
     return (
       <Screen>
-        <MotiView from={{ opacity: 0, translateY: 8 }} animate={{ opacity: 1, translateY: 0 }} style={{ gap: 16 }}>
-          <ThemedText type="title">{session.topic}</ThemedText>
-          <View style={{ alignItems: 'center', gap: 8 }}>
-            <ThemedText type="label" style={{ color: colors.tint }}>
-              Starting in
+        <MotiView from={{ opacity: 0, translateY: 8 }} animate={{ opacity: 1, translateY: 0 }} style={styles.header}>
+          <IconBadge name="people-outline" color={colors.tint} size={44} iconSize={20} />
+          <View style={styles.headerText}>
+            <ThemedText type="title" numberOfLines={1} style={styles.headerTitle}>
+              {session.topic}
             </ThemedText>
-            <ThemedText type="title" style={{ fontSize: 40, fontVariant: ['tabular-nums'], color: colors.tint }}>
+            <ThemedText type="muted" numberOfLines={1}>
+              {session.card_count} cards · waiting to start
+            </ThemedText>
+          </View>
+        </MotiView>
+
+        <MotiView from={{ opacity: 0, translateY: 8 }} animate={{ opacity: 1, translateY: 0 }} style={styles.timerRow}>
+          <ThemedText type="label" style={{ color: urgent ? colors.warning : colors.tint }}>
+            Starting in
+          </ThemedText>
+          <View style={[styles.timerPill, { backgroundColor: withAlpha(urgent ? colors.warning : colors.tint, 0.14) }]}>
+            <Ionicons name="timer-outline" size={16} color={urgent ? colors.warning : colors.tint} />
+            <ThemedText
+              type="title"
+              style={[styles.timerText, { fontVariant: ['tabular-nums'], color: urgent ? colors.warning : colors.tint }]}>
               {formatClock(secondsLeft)}
             </ThemedText>
           </View>
-          <View style={{ gap: 8 }}>
-            <ThemedText type="label">Joined ({participants.length})</ThemedText>
-            {participants.map((p) => (
-              <ThemedText key={p.id} type="muted">
-                {p.name}
-              </ThemedText>
-            ))}
-          </View>
         </MotiView>
+
+        <View style={[styles.progressTrack, { backgroundColor: withAlpha(colors.tint, 0.12) }]}>
+          <View style={[styles.progressFill, { width: `${progress * 100}%`, backgroundColor: colors.tint }]} />
+        </View>
+
+        <View style={[styles.joinedCard, cardStyle(colorScheme)]}>
+          <ThemedText type="label">Joined ({participants.length})</ThemedText>
+          {participants.map((p) => (
+            <ThemedText key={p.id} type="muted">
+              {p.name}
+            </ThemedText>
+          ))}
+        </View>
       </Screen>
     );
   }
@@ -102,34 +131,39 @@ export default function QuizSessionScreen() {
     const ranked = rankParticipants(participants);
     return (
       <Screen>
-        <MotiView from={{ opacity: 0, translateY: 8 }} animate={{ opacity: 1, translateY: 0 }} style={{ gap: 16 }}>
-          <ThemedText type="title">Results — {session.topic}</ThemedText>
-          <View style={{ gap: 10 }}>
-            {ranked.map((p, i) => (
-              <View
-                key={p.id}
-                style={[
-                  { padding: 14, flexDirection: 'row', alignItems: 'center', gap: 12 },
-                  cardStyle(colorScheme),
-                  i === 0 ? shadow : undefined,
-                ]}>
-                <ThemedText type="title" style={{ fontSize: 18, width: 28, color: i === 0 ? colors.tint : colors.icon }}>
-                  {i + 1}
-                </ThemedText>
-                <View style={{ flex: 1 }}>
-                  <ThemedText type="subtitle">
-                    {p.name}
-                    {p.profile_id === profile?.id ? ' (you)' : ''}
-                  </ThemedText>
-                  <ThemedText type="muted">
-                    {p.correct_count}/{session.card_count} correct
-                  </ThemedText>
-                </View>
-                {i === 0 && <Ionicons name="trophy" size={22} color={colors.tint} />}
-              </View>
-            ))}
+        <MotiView from={{ opacity: 0, translateY: 8 }} animate={{ opacity: 1, translateY: 0 }} style={styles.header}>
+          <IconBadge name="trophy" color={colors.tint} size={44} iconSize={20} />
+          <View style={styles.headerText}>
+            <ThemedText type="title" numberOfLines={1} style={styles.headerTitle}>
+              Results
+            </ThemedText>
+            <ThemedText type="muted" numberOfLines={1}>
+              {session.topic}
+            </ThemedText>
           </View>
         </MotiView>
+
+        <View style={styles.resultsList}>
+          {ranked.map((p, i) => (
+            <View
+              key={p.id}
+              style={[styles.resultRow, cardStyle(colorScheme), i === 0 ? shadow : undefined]}>
+              <ThemedText type="title" style={{ fontSize: 18, width: 28, color: i === 0 ? colors.tint : colors.icon }}>
+                {i + 1}
+              </ThemedText>
+              <View style={{ flex: 1 }}>
+                <ThemedText type="subtitle">
+                  {p.name}
+                  {p.profile_id === profile?.id ? ' (you)' : ''}
+                </ThemedText>
+                <ThemedText type="muted">
+                  {p.correct_count}/{session.card_count} correct
+                </ThemedText>
+              </View>
+              {i === 0 && <Ionicons name="trophy" size={22} color={colors.tint} />}
+            </View>
+          ))}
+        </View>
       </Screen>
     );
   }
@@ -145,16 +179,26 @@ export default function QuizSessionScreen() {
   const questionIndex = me.answers.length;
   const question = session.questions[questionIndex];
   const secondsLeft = Math.ceil((endsAtMs - nowTick) / 1000);
+  const urgent = secondsLeft <= LOW_TIME_SECONDS;
+  const totalActiveSeconds = session.card_count * PER_QUESTION_SECONDS;
+  const progress = clampProgress(1 - secondsLeft / totalActiveSeconds);
 
   if (!question || me.finished_at) {
     return (
       <Screen>
-        <MotiView from={{ opacity: 0 }} animate={{ opacity: 1 }} style={{ gap: 10, alignItems: 'center', paddingTop: 40 }}>
-          <Ionicons name="checkmark-circle-outline" size={32} color={colors.success} />
-          <ThemedText type="subtitle">You&apos;re done</ThemedText>
-          <ThemedText type="muted">
-            {me.correct_count}/{session.card_count} correct · waiting for others to finish or time to run out.
-          </ThemedText>
+        <MotiView
+          from={{ opacity: 0, translateY: 8 }}
+          animate={{ opacity: 1, translateY: 0 }}
+          style={[styles.doneCard, { backgroundColor: withAlpha(colors.success, 0.12) }]}>
+          <IconBadge name="checkmark-circle-outline" color={colors.success} size={36} iconSize={16} />
+          <View style={styles.doneText}>
+            <ThemedText type="label" style={{ color: colors.success }}>
+              You&apos;re done
+            </ThemedText>
+            <ThemedText type="muted">
+              {me.correct_count}/{session.card_count} correct · waiting for others to finish or time to run out.
+            </ThemedText>
+          </View>
         </MotiView>
       </Screen>
     );
@@ -178,47 +222,40 @@ export default function QuizSessionScreen() {
 
   return (
     <Screen>
-      <MotiView
-        from={{ opacity: 0, translateY: 8 }}
-        animate={{ opacity: 1, translateY: 0 }}
-        style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+      <MotiView from={{ opacity: 0, translateY: 8 }} animate={{ opacity: 1, translateY: 0 }} style={styles.timerRow}>
         <ThemedText type="muted">
           {questionIndex + 1} / {session.card_count}
         </ThemedText>
-        <View
-          style={{
-            flexDirection: 'row',
-            alignItems: 'center',
-            gap: 6,
-            paddingVertical: 6,
-            paddingHorizontal: 12,
-            borderRadius: 16,
-            backgroundColor: withAlpha(colors.tint, 0.14),
-          }}>
-          <Ionicons name="timer-outline" size={14} color={colors.tint} />
-          <ThemedText style={{ color: colors.tint, fontVariant: ['tabular-nums'] }}>
+        <View style={[styles.timerPill, { backgroundColor: withAlpha(urgent ? colors.warning : colors.tint, 0.14) }]}>
+          <Ionicons name="timer-outline" size={16} color={urgent ? colors.warning : colors.tint} />
+          <ThemedText
+            type="title"
+            style={[styles.timerText, { fontVariant: ['tabular-nums'], color: urgent ? colors.warning : colors.tint }]}>
             {formatClock(secondsLeft)}
           </ThemedText>
         </View>
       </MotiView>
 
-      <View style={[{ padding: 20 }, cardStyle(colorScheme), shadow]}>
+      <View style={[styles.progressTrack, { backgroundColor: withAlpha(urgent ? colors.warning : colors.tint, 0.12) }]}>
+        <View
+          style={[styles.progressFill, { width: `${progress * 100}%`, backgroundColor: urgent ? colors.warning : colors.tint }]}
+        />
+      </View>
+
+      <View style={[styles.questionCard, cardStyle(colorScheme), shadow]}>
         <ThemedText type="subtitle" style={{ textAlign: 'center' }}>
           {question.question}
         </ThemedText>
       </View>
 
-      <View style={{ gap: 10 }}>
+      <View style={styles.optionsList}>
         {question.options.map((option, i) => {
           const isCorrect = i === question.correct_option;
           const isSelected = selectedOption === i;
           const showResult = selectedOption !== null && (isSelected || isCorrect);
           const borderColor = showResult ? (isCorrect ? colors.success : colors.warning) : colors.tint;
           return (
-            <Pressable
-              key={i}
-              onPress={() => answer(i)}
-              style={{ borderWidth: 1.5, borderColor, borderRadius: 12, paddingVertical: 12, paddingHorizontal: 14 }}>
+            <Pressable key={i} onPress={() => answer(i)} style={[styles.option, { borderColor }]}>
               <ThemedText style={{ color: showResult ? borderColor : undefined }}>{option}</ThemedText>
             </Pressable>
           );
@@ -227,3 +264,29 @@ export default function QuizSessionScreen() {
     </Screen>
   );
 }
+
+const styles = StyleSheet.create({
+  header: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  headerText: { flex: 1, minWidth: 0, gap: 2 },
+  headerTitle: { fontSize: 22 },
+  timerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  timerPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    borderRadius: 20,
+  },
+  timerText: { fontSize: 18 },
+  progressTrack: { height: 4, borderRadius: 2, overflow: 'hidden' },
+  progressFill: { height: '100%', borderRadius: 2 },
+  joinedCard: { padding: 16, gap: 10 },
+  resultsList: { gap: 10 },
+  resultRow: { padding: 14, flexDirection: 'row', alignItems: 'center', gap: 12 },
+  doneCard: { flexDirection: 'row', gap: 12, padding: 14, borderRadius: 16, alignItems: 'flex-start' },
+  doneText: { flex: 1, minWidth: 0, gap: 2 },
+  questionCard: { padding: 20 },
+  optionsList: { gap: 10 },
+  option: { borderWidth: 1.5, borderRadius: 12, paddingVertical: 12, paddingHorizontal: 14 },
+});

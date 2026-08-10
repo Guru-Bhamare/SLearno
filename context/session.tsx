@@ -44,7 +44,17 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
         .eq('id', userId as string)
         .maybeSingle();
       if (error) throw error;
-      return data as Profile | null;
+      if (data) return data as Profile;
+
+      // No onboarding interview: first launch on a device creates a blank
+      // profile straight away so the intern lands directly on the Today tab.
+      const { data: created, error: insertError } = await supabase
+        .from('profiles')
+        .insert({ id: userId as string })
+        .select('*')
+        .single();
+      if (insertError) throw insertError;
+      return created as Profile;
     },
     enabled: !!userId,
   });

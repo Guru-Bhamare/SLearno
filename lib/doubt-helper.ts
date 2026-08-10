@@ -2,17 +2,17 @@ const TOPIC_ANSWERS: { keywords: string[]; answer: string }[] = [
   {
     keywords: ['git', 'merge', 'branch', 'rebase'],
     answer:
-      'Try `git status` first to see what state you\'re in, then check the "Git Branching" resource in the Library — it covers merge/rebase visually.',
+      'Try `git status` first to see what state you\'re in — merge conflicts usually come from diverged history, so `git log --oneline --graph` on both branches helps before you rebase or merge.',
   },
   {
     keywords: ['async', 'promise', 'await'],
     answer:
-      'A common gotcha: forgetting to `await` inside a loop. Check the "Debugging Async Code" resource, and try adding console.logs before/after each await to see the actual order of execution.',
+      'A common gotcha: forgetting to `await` inside a loop. Try adding console.logs before/after each await to see the actual order of execution.',
   },
   {
     keywords: ['api', 'endpoint', 'rest', 'http'],
     answer:
-      'Check the request/response in your network tab first — status code and payload usually tell you which side (client or server) the issue is on. See "Intro to REST APIs" in the Library.',
+      'Check the request/response in your network tab first — status code and payload usually tell you which side (client or server) the issue is on.',
   },
 ];
 
@@ -25,7 +25,7 @@ export function getMockAnswer(question: string): string {
   const lower = question.toLowerCase();
   const match = TOPIC_ANSWERS.find((t) => t.keywords.some((k) => lower.includes(k)));
   if (match) return match.answer;
-  return "Good question — logged for your mentor. In the meantime, check the Library for related resources, or the common doubts board in case someone's asked something similar.";
+  return "Good question — logged for your mentor. In the meantime, check the common doubts board in case someone's asked something similar.";
 }
 
 /**

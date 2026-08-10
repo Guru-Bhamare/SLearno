@@ -86,9 +86,9 @@ export default function TabLayout() {
       <Tabs.Screen
         name="library"
         options={{
-          title: 'Library',
+          title: 'Journey',
           tabBarIcon: ({ color, focused }) => (
-            <AnimatedTabIcon name={focused ? 'library' : 'library-outline'} color={color} focused={focused} />
+            <AnimatedTabIcon name={focused ? 'trending-up' : 'trending-up-outline'} color={color} focused={focused} />
           ),
         }}
       />

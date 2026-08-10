@@ -1,21 +1,19 @@
 import { Ionicons } from '@expo/vector-icons';
 import { MotiView } from 'moti';
-import { useEffect, useMemo, useState } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { useEffect, useState } from 'react';
+import { Pressable, StyleSheet, TextInput, View } from 'react-native';
 
-import { CuriosityCard } from '@/components/curiosity-card';
-import { FlashcardDeck } from '@/components/flashcard-deck';
 import { IconBadge } from '@/components/icon-badge';
 import { QuizSessionList } from '@/components/quiz-session-list';
 import { Screen } from '@/components/screen';
 import { ThemedText } from '@/components/themed-text';
+import { TopicFactsDeck } from '@/components/topic-facts-deck';
 import { Colors } from '@/constants/theme';
 import { useSession } from '@/context/session';
 import { useColorScheme } from '@/hooks/use-color-scheme';
-import { useAnswerFlashcard, useDueFlashcards } from '@/hooks/use-flashcards';
-import { useTodayCuriosityLog } from '@/hooks/use-curiosity';
+import { useGenerateTopicFacts } from '@/hooks/use-topic-facts';
 import { withAlpha } from '@/lib/color';
-import { GAP_DURATIONS_MIN, pickMicroGapSuggestion } from '@/lib/micro-gap';
+import { GAP_DURATIONS_MIN } from '@/lib/micro-gap';
 import { cardStyle, shadow } from '@/lib/theme-styles';
 
 type Mode = 'solo' | 'speed';
@@ -67,14 +65,17 @@ export default function MicroGapScreen() {
   const colorScheme = useColorScheme() ?? 'light';
   const colors = Colors[colorScheme];
 
-  const { data: dueCards } = useDueFlashcards(profile?.id);
-  const { mutate: answerCard } = useAnswerFlashcard(profile?.id);
-  const { data: curiosityToday } = useTodayCuriosityLog(profile?.id);
-
   const [mode, setMode] = useState<Mode>('solo');
   const [durationMin, setDurationMin] = useState<number | null>(null);
   const [secondsLeft, setSecondsLeft] = useState(0);
   const [expired, setExpired] = useState(false);
+
+  const [pendingMinutes, setPendingMinutes] = useState<number | null>(null);
+  const [topicInput, setTopicInput] = useState('');
+  const [topic, setTopic] = useState<string | null>(null);
+  const [facts, setFacts] = useState<string[] | null>(null);
+  const { mutate: generateFacts, isPending: isGeneratingFacts, error: factsError, reset: resetFactsRequest } =
+    useGenerateTopicFacts();
 
   useEffect(() => {
     if (durationMin == null) return;
@@ -91,25 +92,46 @@ export default function MicroGapScreen() {
     return () => clearInterval(interval);
   }, [durationMin]);
 
-  const suggestion = useMemo(
-    () =>
-      pickMicroGapSuggestion({
-        dueCards,
-        curiosityAnsweredToday: !!curiosityToday,
-      }),
-    [dueCards, curiosityToday]
-  );
-
   const startGap = (minutes: number) => {
     setDurationMin(minutes);
     setSecondsLeft(minutes * 60);
     setExpired(false);
   };
 
+  const chooseDuration = (minutes: number) => {
+    setPendingMinutes(minutes);
+    resetFactsRequest();
+  };
+
+  const backToDuration = () => {
+    setPendingMinutes(null);
+    setTopicInput('');
+    resetFactsRequest();
+  };
+
+  const submitTopic = () => {
+    const trimmed = topicInput.trim();
+    if (!trimmed || pendingMinutes == null) return;
+    generateFacts(trimmed, {
+      onSuccess: (result) => {
+        setTopic(trimmed);
+        setFacts(result);
+        startGap(pendingMinutes);
+        setPendingMinutes(null);
+        setTopicInput('');
+      },
+    });
+  };
+
   const endGap = () => {
     setDurationMin(null);
     setSecondsLeft(0);
     setExpired(false);
+    setPendingMinutes(null);
+    setTopicInput('');
+    setTopic(null);
+    setFacts(null);
+    resetFactsRequest();
   };
 
   const totalSeconds = (durationMin ?? 0) * 60;
@@ -137,7 +159,7 @@ export default function MicroGapScreen() {
     );
   }
 
-  if (durationMin == null) {
+  if (durationMin == null && pendingMinutes == null) {
     return (
       <Screen>
         <MotiView from={{ opacity: 0, translateY: 8 }} animate={{ opacity: 1, translateY: 0 }} style={styles.header}>
@@ -163,7 +185,7 @@ export default function MicroGapScreen() {
             {GAP_DURATIONS_MIN.map((minutes) => (
               <Pressable
                 key={minutes}
-                onPress={() => startGap(minutes)}
+                onPress={() => chooseDuration(minutes)}
                 style={[styles.durationBtn, { backgroundColor: withAlpha(colors.tint, 0.1) }]}>
                 <ThemedText type="title" style={[styles.durationValue, { color: colors.tint }]}>
                   {minutes}
@@ -174,16 +196,64 @@ export default function MicroGapScreen() {
           </View>
         </MotiView>
 
-        <View style={[styles.infoCard, cardStyle(colorScheme)]}>
-          <IconBadge name="sparkles-outline" color={colors.tint} size={36} iconSize={16} />
-          <View style={styles.infoText}>
-            <ThemedText type="label">What you&apos;ll get</ThemedText>
-            <ThemedText type="muted" style={styles.infoDesc}>
-              One small thing pulled from what you were already working on — a flashcard due for review, or
-              today&apos;s curiosity prompt. Never a list to pick from.
+       
+      </Screen>
+    );
+  }
+
+  if (durationMin == null && pendingMinutes != null) {
+    return (
+      <Screen>
+        <MotiView from={{ opacity: 0, translateY: 8 }} animate={{ opacity: 1, translateY: 0 }} style={styles.header}>
+          <IconBadge name="bulb-outline" color={colors.tint} size={44} iconSize={20} />
+          <View style={styles.headerText}>
+            <ThemedText type="title" numberOfLines={1} style={styles.headerTitle}>
+              explore?
+            </ThemedText>
+            <ThemedText type="muted" numberOfLines={2}>
+              {pendingMinutes} min of quick facts on any topic.
             </ThemedText>
           </View>
-        </View>
+        </MotiView>
+
+        <MotiView
+          from={{ opacity: 0, scale: 0.98 }}
+          animate={{ opacity: 1, scale: 1 }}
+          style={[styles.durationCard, cardStyle(colorScheme)]}>
+          <ThemedText type="label">Topic</ThemedText>
+          <TextInput
+            value={topicInput}
+            onChangeText={setTopicInput}
+            placeholder="e.g. black holes,Quantum computing"
+            placeholderTextColor={colors.icon}
+            autoFocus
+            editable={!isGeneratingFacts}
+            onSubmitEditing={submitTopic}
+            returnKeyType="go"
+            style={[styles.topicInput, { color: colors.text, borderColor: colors.border }]}
+          />
+          {factsError && (
+            <ThemedText type="muted" style={{ color: colors.warning }}>
+              {factsError instanceof Error ? factsError.message : 'Something went wrong — try again.'}
+            </ThemedText>
+          )}
+          <Pressable
+            disabled={!topicInput.trim() || isGeneratingFacts}
+            onPress={submitTopic}
+            style={[
+              styles.submitButton,
+              { backgroundColor: colors.tint, opacity: !topicInput.trim() || isGeneratingFacts ? 0.5 : 1 },
+            ]}>
+            <ThemedText style={{ color: '#fff', fontWeight: '600' }}>
+              {isGeneratingFacts ? 'Finding facts…' : 'Start'}
+            </ThemedText>
+          </Pressable>
+          <Pressable onPress={backToDuration} disabled={isGeneratingFacts} style={styles.backButton}>
+            <ThemedText type="muted" style={{ color: colors.icon }}>
+              Back
+            </ThemedText>
+          </Pressable>
+        </MotiView>
       </Screen>
     );
   }
@@ -232,19 +302,7 @@ export default function MicroGapScreen() {
       )}
 
       <View style={[styles.contentCard, cardStyle(colorScheme), shadow]}>
-        {suggestion.kind === 'flashcard' && (
-          <FlashcardDeck cards={[suggestion.card]} onAnswer={(card, correct) => answerCard({ card, correct })} />
-        )}
-        {suggestion.kind === 'curiosity' && <CuriosityCard profileId={profile?.id} />}
-        {suggestion.kind === 'none' && (
-          <View style={styles.emptyState}>
-            <Ionicons name="checkmark-circle-outline" size={28} color={colors.success} />
-            <ThemedText type="subtitle">You&apos;re caught up</ThemedText>
-            <ThemedText type="muted" style={styles.emptyDesc}>
-              No due flashcards or open prompts right now — a short break is a fine use of this gap too.
-            </ThemedText>
-          </View>
-        )}
+        {topic && facts && <TopicFactsDeck topic={topic} facts={facts} />}
       </View>
 
       <Pressable onPress={endGap} style={styles.newGapBtn}>
@@ -302,8 +360,9 @@ const styles = StyleSheet.create({
   progressFill: { height: '100%', borderRadius: 2 },
   expiredCard: { flexDirection: 'row', gap: 12, padding: 14, borderRadius: 16, alignItems: 'flex-start' },
   expiredText: { flex: 1, minWidth: 0, gap: 2 },
-  contentCard: { padding: 18, gap: 14, overflow: 'hidden' },
-  emptyState: { alignItems: 'center', gap: 6, paddingVertical: 12 },
-  emptyDesc: { textAlign: 'center' },
+  contentCard: { padding: 18, gap: 14 },
   newGapBtn: { alignSelf: 'center', padding: 8 },
+  topicInput: { borderWidth: 1.5, borderRadius: 14, paddingVertical: 12, paddingHorizontal: 14, fontSize: 15 },
+  submitButton: { borderRadius: 14, paddingVertical: 14, alignItems: 'center' },
+  backButton: { alignSelf: 'center', padding: 6 },
 });

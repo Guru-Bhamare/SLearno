@@ -1,178 +1,187 @@
-import { router } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
 import { MotiView } from 'moti';
-import { useMemo, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import { ActivityIndicator, StyleSheet, View } from 'react-native';
 
+import { AnimatedCounter } from '@/components/animated-counter';
+import { Heatmap } from '@/components/heatmap';
+import { IconBadge } from '@/components/icon-badge';
+import { ProgressRing } from '@/components/progress-ring';
 import { Screen } from '@/components/screen';
 import { ThemedText } from '@/components/themed-text';
 import { Colors } from '@/constants/theme';
 import { useSession } from '@/context/session';
 import { useColorScheme } from '@/hooks/use-color-scheme';
-import { useResources, useSuggestResources, type Resource } from '@/hooks/use-resources';
+import { useConsistencyLog, useJourneyStats, useStreak } from '@/hooks/use-consistency';
+import { withAlpha } from '@/lib/color';
 import { cardStyle } from '@/lib/theme-styles';
 
-const SOURCE_LABELS: Record<string, string> = {
-  mentor: 'Mentor-suggested',
-  senior: 'Senior-shared',
-  official: 'Official',
-  ai: 'AI-suggested',
-};
-
-export default function LibraryScreen() {
-  const colorScheme = useColorScheme() ?? 'light';
-  const tint = Colors[colorScheme].tint;
+export default function JourneyScreen() {
   const { profile } = useSession();
-  const { data: resources, isLoading } = useResources();
-  const { mutate: suggestResources, isPending: isSuggesting, data: suggested } = useSuggestResources();
+  const colorScheme = useColorScheme() ?? 'light';
+  const colors = Colors[colorScheme];
 
-  const [skillFilter, setSkillFilter] = useState<string | null>(null);
-  const [sourceFilter, setSourceFilter] = useState<string | null>(null);
-  const [searchText, setSearchText] = useState('');
-  const [searchedFor, setSearchedFor] = useState<string | null>(null);
+  const { data: streak, isLoading: isStreakLoading } = useStreak(profile?.id);
+  const { data: journey, isLoading: isJourneyLoading } = useJourneyStats(profile?.id);
+  const { data: days } = useConsistencyLog(profile?.id);
 
-  const skillAreas = useMemo(
-    () => Array.from(new Set((resources ?? []).map((r) => r.skill_area))),
-    [resources]
-  );
+  const isLoading = isStreakLoading || isJourneyLoading;
 
-  const filtered = useMemo(
-    () =>
-      (resources ?? []).filter(
-        (r) => (!skillFilter || r.skill_area === skillFilter) && (!sourceFilter || r.source_tag === sourceFilter)
-      ),
-    [resources, skillFilter, sourceFilter]
-  );
-
-  const runSearch = () => {
-    if (!searchText.trim() || !profile?.id) return;
-    setSearchedFor(searchText.trim());
-    suggestResources({ profileId: profile.id, query: searchText.trim() });
-  };
+  const windowSize = journey?.windowSize ?? 10;
+  const recent = journey?.recentActiveDays ?? 0;
+  const prior = journey?.priorActiveDays ?? 0;
+  const delta = recent - prior;
+  const trend = delta > 0 ? 'up' : delta < 0 ? 'down' : 'flat';
+  const trendIcon = trend === 'up' ? 'trending-up' : trend === 'down' ? 'trending-down' : 'remove';
+  const trendColor = trend === 'up' ? colors.success : trend === 'down' ? colors.warning : colors.icon;
 
   return (
     <Screen>
-      <MotiView from={{ opacity: 0, translateY: 8 }} animate={{ opacity: 1, translateY: 0 }}>
-        <ThemedText type="title">Library</ThemedText>
-        <ThemedText type="muted">Curated resources, tagged by source.</ThemedText>
+      {/* Header */}
+      <MotiView
+        from={{ opacity: 0, translateY: 8 }}
+        animate={{ opacity: 1, translateY: 0 }}
+        style={styles.header}>
+        <View style={styles.headerLeft}>
+          <IconBadge name="trending-up" color={colors.tint} size={44} iconSize={20} />
+          <View style={styles.headerText}>
+            <ThemedText type="title" numberOfLines={1} style={styles.title}>
+              Your journey
+            </ThemedText>
+            <ThemedText type="muted" numberOfLines={1}>
+              What you've done
+            </ThemedText>
+          </View>
+        </View>
+
+        <View style={[styles.streakBtn, { backgroundColor: withAlpha(colors.warning, 0.12) }]}>
+          <Ionicons name="flame" size={16} color={colors.warning} />
+          <AnimatedCounter
+            value={streak?.current_streak ?? 0}
+            style={{ color: colors.warning, fontWeight: '700', fontSize: 15 }}
+          />
+        </View>
       </MotiView>
 
-      <View style={[styles.searchRow, { borderColor: tint }]}>
-        <TextInput
-          value={searchText}
-          onChangeText={setSearchText}
-          onSubmitEditing={runSearch}
-          placeholder="Search a skill or hobby to learn…"
-          placeholderTextColor={Colors[colorScheme].icon}
-          style={[styles.searchInput, { color: Colors[colorScheme].text }]}
-          returnKeyType="search"
-        />
-        <Pressable onPress={runSearch} style={[styles.searchButton, { backgroundColor: tint }]}>
-          {isSuggesting ? (
-            <ActivityIndicator color="#fff" size="small" />
-          ) : (
-            <ThemedText style={{ color: '#fff' }}>Search</ThemedText>
-          )}
-        </Pressable>
-      </View>
-
-      {searchedFor && (
-        <View style={{ gap: 8 }}>
-          <ThemedText type="label" style={{ color: tint }}>
-            AI suggestions for "{searchedFor}"
-          </ThemedText>
-          {!isSuggesting && suggested?.length === 0 && (
-            <ThemedText type="muted">No suggestions came back — try a different phrasing.</ThemedText>
-          )}
-          {(suggested ?? []).map((resource) => (
-            <ResourceCard key={resource.id} resource={resource} tint={tint} colorScheme={colorScheme} />
-          ))}
-          {(suggested ?? []).some((r) => r.source_tag === 'ai') && (
-            <ThemedText type="muted">AI-suggested — verify before relying on it.</ThemedText>
-          )}
-        </View>
-      )}
-
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
-        {Object.entries(SOURCE_LABELS).map(([value, label]) => (
-          <Chip
-            key={value}
-            label={label}
-            active={sourceFilter === value}
-            onPress={() => setSourceFilter((s) => (s === value ? null : value))}
-          />
-        ))}
-      </ScrollView>
-
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
-        {skillAreas.map((area) => (
-          <Chip
-            key={area}
-            label={area}
-            active={skillFilter === area}
-            onPress={() => setSkillFilter((s) => (s === area ? null : area))}
-          />
-        ))}
-      </ScrollView>
-
-      {isLoading && <ActivityIndicator />}
-      {!isLoading && filtered.length === 0 && <ThemedText type="muted">No resources match those filters.</ThemedText>}
-
-      <View style={{ gap: 10 }}>
-        {filtered.map((resource, i) => (
+      {isLoading ? (
+        <ActivityIndicator style={{ marginTop: 32 }} color={colors.tint} />
+      ) : (
+        <>
+          {/* So far */}
           <MotiView
-            key={resource.id}
-            from={{ opacity: 0, translateY: 10 }}
-            animate={{ opacity: 1, translateY: 0 }}
-            transition={{ delay: i * 40 }}>
-            <ResourceCard resource={resource} tint={tint} colorScheme={colorScheme} />
+            from={{ opacity: 0, scale: 0.98 }}
+            animate={{ opacity: 1, scale: 1 }}
+            style={[styles.progressCard, cardStyle(colorScheme), { borderColor: colors.border }]}>
+            <View style={styles.progressText}>
+              <ThemedText type="label" style={{ color: colors.tint }}>
+                So far
+              </ThemedText>
+              <ThemedText type="subtitle" numberOfLines={2} style={styles.soFarTitle}>
+                {journey?.allTimeActiveDays ?? 0} active {journey?.allTimeActiveDays === 1 ? 'day' : 'days'}
+              </ThemedText>
+              <ThemedText type="muted" style={styles.progressMeta}>
+                Longest streak: {streak?.longest_streak ?? 0} days
+              </ThemedText>
+            </View>
+            <View style={styles.ringWrap}>
+              <ProgressRing
+                progress={recent / windowSize}
+                label={`${recent}/${windowSize}`}
+                size={52}
+                strokeWidth={5}
+                trackColor={withAlpha(colors.tint, 0.12)}
+                fillColor={colors.tint}
+              />
+            </View>
           </MotiView>
-        ))}
-      </View>
+
+          {/* Then vs now */}
+          <View style={styles.thenNowRow}>
+            <View style={[styles.thenNowCard, cardStyle(colorScheme)]}>
+              <ThemedText type="label" style={{ color: colors.icon }}>
+                {windowSize} days ago
+              </ThemedText>
+              <AnimatedCounter value={prior} type="title" style={styles.thenNowValue} />
+              <ThemedText type="muted" numberOfLines={1}>
+                active days that week
+              </ThemedText>
+            </View>
+            <View style={[styles.thenNowCard, cardStyle(colorScheme)]}>
+              <ThemedText type="label" style={{ color: colors.tint }}>
+                Last {windowSize} days
+              </ThemedText>
+              <AnimatedCounter value={recent} type="title" style={[styles.thenNowValue, { color: colors.tint }]} />
+              <View style={styles.trendRow}>
+                <Ionicons name={trendIcon} size={14} color={trendColor} />
+                <ThemedText numberOfLines={1} style={[styles.trendText, { color: trendColor }]}>
+                  {delta === 0 ? 'same pace' : `${delta > 0 ? '+' : ''}${delta} vs then`}
+                </ThemedText>
+              </View>
+            </View>
+          </View>
+
+          {/* Pattern */}
+          <View style={styles.patternSection}>
+            <ThemedText type="subtitle" style={{ fontSize: 17 }}>
+              Your pattern
+            </ThemedText>
+            <ThemedText type="muted">
+              No leaderboard, no comparison to anyone else — just your own record. A break resets the
+              streak, not the history below.
+            </ThemedText>
+            <Heatmap days={days ?? []} />
+          </View>
+        </>
+      )}
     </Screen>
   );
 }
 
-function ResourceCard({
-  resource,
-  tint,
-  colorScheme,
-}: {
-  resource: Resource;
-  tint: string;
-  colorScheme: 'light' | 'dark';
-}) {
-  return (
-    <Pressable
-      onPress={() => router.push(`/resource/${resource.id}`)}
-      style={[styles.card, cardStyle(colorScheme)]}>
-      <ThemedText type="subtitle">{resource.title}</ThemedText>
-      <ThemedText type="label" style={{ color: tint }}>
-        {resource.skill_area} · {SOURCE_LABELS[resource.source_tag] ?? resource.source_tag}
-      </ThemedText>
-      <ThemedText type="muted">{resource.usage_count} interns used this</ThemedText>
-    </Pressable>
-  );
-}
-
-function Chip({ label, active, onPress }: { label: string; active: boolean; onPress: () => void }) {
-  const colorScheme = useColorScheme() ?? 'light';
-  const tint = Colors[colorScheme].tint;
-  return (
-    <Pressable
-      onPress={onPress}
-      style={[
-        styles.chip,
-        { borderColor: tint, backgroundColor: active ? tint : 'transparent' },
-      ]}>
-      <ThemedText style={{ color: active ? '#fff' : tint }}>{label}</ThemedText>
-    </Pressable>
-  );
-}
-
 const styles = StyleSheet.create({
-  chip: { borderWidth: 1.5, borderRadius: 20, paddingVertical: 6, paddingHorizontal: 14 },
-  card: { padding: 14, gap: 4 },
-  searchRow: { flexDirection: 'row', gap: 8, alignItems: 'center', borderWidth: 1.5, borderRadius: 12, padding: 4 },
-  searchInput: { flex: 1, paddingHorizontal: 10, paddingVertical: 8 },
-  searchButton: { borderRadius: 8, paddingVertical: 10, paddingHorizontal: 16 },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  headerLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    flex: 1,
+    minWidth: 0,
+  },
+  headerText: { flex: 1, minWidth: 0, gap: 2 },
+  title: { fontSize: 22, lineHeight: 28 },
+  streakBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 20,
+    flexShrink: 0,
+  },
+  progressCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    padding: 16,
+    borderWidth: 1,
+    overflow: 'hidden',
+  },
+  progressText: { flex: 1, minWidth: 0, gap: 4 },
+  soFarTitle: { fontSize: 16, lineHeight: 22 },
+  progressMeta: { fontSize: 13 },
+  ringWrap: { flexShrink: 0 },
+  thenNowRow: { flexDirection: 'row', gap: 10 },
+  thenNowCard: {
+    flex: 1,
+    minWidth: 0,
+    padding: 14,
+    gap: 4,
+  },
+  thenNowValue: { fontSize: 26, lineHeight: 32 },
+  trendRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  trendText: { fontSize: 13, fontWeight: '600', flexShrink: 1 },
+  patternSection: { gap: 10 },
 });

@@ -55,9 +55,9 @@ export default function RootLayout() {
               />
               <Stack.Screen name="reflection" options={{ headerShown: false, animation: 'fade' }} />
               <Stack.Screen name="day-plan" options={{ title: 'Plan your day', animation: 'slide_from_bottom' }} />
-              <Stack.Screen name="streak-detail" options={{ title: 'Streak' }} />
+              <Stack.Screen name="streak-detail" options={{ title: 'Streak',headerShown:false }} />
               <Stack.Screen name="resource/[id]" options={{ title: 'Resource' }} />
-              <Stack.Screen name="quiz-session/[id]" options={{ title: 'Speed round' }} />
+              <Stack.Screen name="quiz-session/[id]" options={{ title: 'Speed round',headerShown:false }} />
             </Stack>
             <StatusBar style="auto" />
           </ThemeProvider>

@@ -189,7 +189,7 @@ export function TodayPlanForm({
         {isPending ? (
           <ActivityIndicator color="#fff" size="small" />
         ) : (
-          <Ionicons name="sparkles" size={18} color="#fff" />
+          <Ionicons  size={18} color="#fff" />
         )}
         <ThemedText numberOfLines={1} style={styles.submitText}>
           {isPending ? 'Building your plan…' : "Generate today's plan"}

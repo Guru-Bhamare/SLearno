@@ -15,13 +15,14 @@ import { Colors } from '@/constants/theme';
 import { useSession } from '@/context/session';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useStreak } from '@/hooks/use-consistency';
-import { useSetTaskStatus, useTasksForDate, todayISO } from '@/hooks/use-routine';
+import { todayISO, useSetTaskStatus, useTasksForDate } from '@/hooks/use-routine';
 import { withAlpha } from '@/lib/color';
 import { scheduleEveningNudge } from '@/lib/notifications';
 import { cardStyle } from '@/lib/theme-styles';
 
 function greeting() {
-  const hour = new Date().getHours();
+  const localDateTime = new Date().toLocaleString();
+  const hour = new Date(localDateTime).getHours();
   if (hour < 12) return 'Good morning';
   if (hour < 18) return 'Good afternoon';
   return 'Good evening';
@@ -122,20 +123,13 @@ export default function TodayScreen() {
 
       {/* Quick actions */}
       <View style={styles.quickRow}>
-        <Pressable
-          onPress={() => router.push('/practice')}
-          style={[styles.quickBtn, cardStyle(colorScheme)]}>
-          <Ionicons name="people-outline" size={16} color={colors.tint} />
-          <ThemedText numberOfLines={1} style={[styles.quickLabel, { color: colors.text }]}>
-            Practice
-          </ThemedText>
-        </Pressable>
+        
         <Pressable
           onPress={() => router.push('/reflection')}
           style={[styles.quickBtn, cardStyle(colorScheme)]}>
           <Ionicons name="leaf-outline" size={16} color={colors.tint} />
           <ThemedText numberOfLines={1} style={[styles.quickLabel, { color: colors.text }]}>
-            Reflection
+            Time with yourself
           </ThemedText>
         </Pressable>
       </View>

@@ -1,4 +1,4 @@
-export const JOIN_WINDOW_SECONDS = 45;
+export const JOIN_WINDOW_SECONDS = 10;
 export const PER_QUESTION_SECONDS = 20;
 export const STALE_SESSION_MINUTES = 30;
 

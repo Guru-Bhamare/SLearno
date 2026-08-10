@@ -22,6 +22,7 @@ export const Colors = {
     warning: '#B26A00',
     gradientStart: '#6C7BFA',
     gradientEnd: '#4F6EF7',
+    statusBar: '#E4E9FE',
   },
   dark: {
     text: '#ECEDEE',
@@ -36,6 +37,7 @@ export const Colors = {
     warning: '#E0A64D',
     gradientStart: '#3D3FA8',
     gradientEnd: '#5A63D8',
+    statusBar: '#161C33',
   },
 };
 

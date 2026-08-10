@@ -46,3 +46,43 @@ export function useStreak(profileId: string | undefined) {
     enabled: !!profileId,
   });
 }
+
+const JOURNEY_WINDOW_DAYS = 10;
+
+/**
+ * "Now" vs "10 days ago" activity comparison, plus an all-time active-day count —
+ * powers the Journey tab's then/now cards.
+ */
+export function useJourneyStats(profileId: string | undefined) {
+  return useQuery({
+    queryKey: ['journey_stats', profileId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('consistency_log')
+        .select('date, completed')
+        .eq('profile_id', profileId as string)
+        .gte('date', isoDaysAgo(2 * JOURNEY_WINDOW_DAYS - 1));
+      if (error) throw error;
+
+      const byDate = new Map(data.map((row) => [row.date, row.completed]));
+      const activeInWindow = (offsetStart: number) =>
+        Array.from({ length: JOURNEY_WINDOW_DAYS }, (_, i) => byDate.get(isoDaysAgo(offsetStart + i)) ?? false)
+          .filter(Boolean).length;
+
+      const { count: allTimeActiveDays, error: countError } = await supabase
+        .from('consistency_log')
+        .select('id', { count: 'exact', head: true })
+        .eq('profile_id', profileId as string)
+        .eq('completed', true);
+      if (countError) throw countError;
+
+      return {
+        recentActiveDays: activeInWindow(0), // today back through 9 days ago
+        priorActiveDays: activeInWindow(JOURNEY_WINDOW_DAYS), // 10-19 days ago
+        allTimeActiveDays: allTimeActiveDays ?? 0,
+        windowSize: JOURNEY_WINDOW_DAYS,
+      };
+    },
+    enabled: !!profileId,
+  });
+}
